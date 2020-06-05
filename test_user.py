@@ -16,7 +16,7 @@ discord_client = discord.Client()
 #mongo_client = pymongo.MongoClient(MONGO_URI)
 
 @discord_client.event
-async def on_ready():
+async def on_connect():
     """
     Performs a retrieval of every message posted 24h ago in every text channel 
     of every guilds the client is connected in.
@@ -57,45 +57,53 @@ async def on_ready():
                             save_dump["meta"]["users"][message.author.id] = { 
                                     "name" : message.author.name}
                             temp["userlookup"][message.author.id] = len(save_dump["meta"]["userindex"]) - 1
-                        save_dump["data"][text_channel.id][message.id] = {
+                        mess = {
                                 "u" : temp["userlookup"][message.author.id],
                                 "t" : message.created_at.timestamp(),
                                 "m" : message.content
                         }
                         if message.edited_at != None:
-                            save_dump["data"][text_channel.id][message.id]["te"] = message.edited_at.timestamp()
+                            mess["te"] = message.edited_at.timestamp()
 
                         for embed in message.embeds:
-                            if "e" not in save_dump["data"][message.id]:
-                                save_dump["data"][message.id]["e"] = []
+                            if "e" not in mess:
+                                mess["e"] = []
                             e = { "url" : embed.url, "type" : embed.type }
                             if embed.type == "rich":
-                                e["t"] = embed.title
-                                e["d"] = embed.description
+                                if embed.title is not discord.Embed.Empty:
+                                    e["t"] = embed.title
+                                if embed.description is not discord.Embed.Empty :
+                                    e["d"] = embed.description
     
-                            save_dump["data"][message.id]["e"].append(e)
+                            mess["e"].append(e)
     
                         for attachment in message.attachments:
-                            if "a" not in save_dump["data"][message.id]:
-                                save_dump["data"][message.id]["a"] = []
+                            if "a" not in mess:
+                                mess["a"] = []
                             
-                            save_dump["data"][message.id]["a"].append({
+                            mess["a"].append({
                                 "url" : attachment.url })
  #                   processed_message = { "date" : message.created_at }
  #                   messages.insert_one(processed_message)
+                        
+                        save_dump["data"][text_channel.id][message.id] = mess
                         if message.created_at > after:
                             after = message.created_at
             except discord.Forbidden:
-                print(guild.name,"] Cannot access", text_channel.name)
-            print(guild.name,"] Processed ", text_channel.name)
-            with open(guild.name+"_"+str(now).replace(" ","T")+".json", "w") as fp:
-                json.dump(save_dump, fp)
-                print("\tSaved in file.")
+                print(guild.name,"] ... cannot access", text_channel.name)
+            print(guild.name,"] Processed ", text_channel.name, "...")
+        f_name = os.getcwd()+"/"+guild.name+"_"+str(now).replace(" ","T")+".json"
+        with open(f_name, "w") as fp:
+            json.dump(save_dump, fp)
+            print("\tSaved in file ", f_name)
+    print("It took ", datetime.utcnow() - now)
     await discord_client.logout()
 
 @discord_client.event
 async def on_message(message):
+    print("Message received", message.guild.name)
     if "zbeul" in message.content:
         pass 
 
+print("Running...")
 discord_client.run(DISCORD_TOKEN_AUTH, bot=False)
